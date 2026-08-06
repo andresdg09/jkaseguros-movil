@@ -1,0 +1,15 @@
+export const Brand = {
+  primary: '#1e3a8a',
+  primaryHover: '#1e40af',
+  secondary: '#eff6ff',
+  accent: '#2563eb',
+  accentHover: '#1d4ed8',
+  success: '#10b981',
+  danger: '#ef4444',
+  warning: '#f59e0b',
+  textMuted: '#64748b',
+  border: '#e2e8f0',
+  background: '#f8fafc',
+  card: '#ffffff',
+  whatsapp: '#25d366',
+} as const;
