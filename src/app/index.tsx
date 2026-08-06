@@ -60,6 +60,10 @@ export default function CotizadorScreen() {
         setSums(Array.isArray(sumsData) ? sumsData : []);
       } catch (err) {
         console.warn('Error al cargar datos iniciales del cotizador', err);
+        showToast(
+          err instanceof ApiError ? err.message : 'No se pudo conectar con el servidor. Verifica tu conexión.',
+          'error'
+        );
       }
     })();
   }, []);
