@@ -94,6 +94,48 @@ export function FormSelect({
   );
 }
 
+export function ChipMultiSelect({
+  label,
+  required,
+  values,
+  onToggle,
+  items,
+  max,
+  onMaxReached,
+}: {
+  label: string;
+  required?: boolean;
+  values: string[];
+  onToggle: (value: string) => void;
+  items: { label: string; value: string | number }[];
+  max?: number;
+  onMaxReached?: () => void;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>
+        {label}
+        {required ? ' *' : ''}
+      </Text>
+      <View style={styles.chipRow}>
+        {items.map((item) => {
+          const value = String(item.value);
+          const selected = values.includes(value);
+          const atMax = !!max && values.length >= max && !selected;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => (atMax ? onMaxReached?.() : onToggle(value))}
+              style={[styles.chip, selected && styles.chipSelected, atMax && styles.chipDisabled]}>
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'danger' | 'whatsapp';
 
 export function Button({
@@ -176,6 +218,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     overflow: 'hidden',
   },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    borderWidth: 1.5,
+    borderColor: Brand.border,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#fff',
+  },
+  chipSelected: { borderColor: Brand.accent, backgroundColor: Brand.secondary },
+  chipDisabled: { opacity: 0.4 },
+  chipText: { fontSize: 14, fontWeight: '600', color: '#334155' },
+  chipTextSelected: { color: Brand.accent },
   button: {
     borderRadius: 10,
     paddingVertical: 14,

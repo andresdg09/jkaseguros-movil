@@ -117,6 +117,6 @@ export interface PendingQuote {
   nro_documento: string;
   estado_civil: string;
   numero_hijos: string;
-  suma_asegurada: string;
+  sumas_aseguradas: string[];
   asesor_id: string;
 }

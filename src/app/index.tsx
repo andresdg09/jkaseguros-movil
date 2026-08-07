@@ -1,8 +1,8 @@
- import { useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, FormField, FormSelect, Screen, SectionTitle } from '@/components/ui';
+import { Button, Card, ChipMultiSelect, FormField, FormSelect, Screen, SectionTitle } from '@/components/ui';
 import { DateField } from '@/components/date-field';
 import { Brand } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
@@ -11,6 +11,8 @@ import { api, ApiError } from '@/services/api';
 import { clearPendingQuote, getPendingQuote, savePendingQuote } from '@/services/pending-quote';
 import { Asesor, Cliente, PendingQuote, QuoteResult } from '@/services/types';
 import { openWhatsApp } from '@/services/whatsapp';
+
+const MAX_SUMAS = 2;
 
 const CODIGOS_AREA = ['0412', '0414', '0424', '0416', '0426'];
 const ESTADOS_CIVILES = [
@@ -30,7 +32,7 @@ const emptyForm: PendingQuote = {
   nro_documento: '',
   estado_civil: 'Soltero',
   numero_hijos: '',
-  suma_asegurada: '',
+  sumas_aseguradas: [],
   asesor_id: '',
 };
 
@@ -44,7 +46,8 @@ export default function CotizadorScreen() {
   const [advisors, setAdvisors] = useState<Asesor[]>([]);
   const [sums, setSums] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<QuoteResult | null>(null);
+  const [results, setResults] = useState<QuoteResult[]>([]);
+  const [sendingEmailFor, setSendingEmailFor] = useState<number | null>(null);
 
   const update = (patch: Partial<PendingQuote>) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -95,38 +98,68 @@ export default function CotizadorScreen() {
         setForm(pending);
         await clearPendingQuote();
         showToast('Sesión iniciada. Procesando tu cotización pendiente...', 'info');
-        ejecutarCotizacion(cliente, pending.suma_asegurada);
+        ejecutarCotizacion(cliente, pending.sumas_aseguradas);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, isLoggedIn, cliente]);
 
-  const ejecutarCotizacion = async (clienteActivo: Partial<Cliente> & { correo?: string }, sumaAsegurada: string) => {
+  const buildActiveCliente = (): Partial<Cliente> & { correo?: string } =>
+    cliente || {
+      primer_nombre: form.primer_nombre,
+      primer_apellido: form.primer_apellido,
+      fecha_nacimiento: form.fecha_nacimiento,
+      tipo_documento: 'Venezolano',
+      nro_documento: form.nro_documento,
+      genero: 'Masculino',
+      estado_civil: form.estado_civil,
+      correo: form.correo,
+      telefono: `${form.codigo_area}-${form.numero_celular}`,
+    };
+
+  const ejecutarCotizacion = async (
+    clienteActivo: Partial<Cliente> & { correo?: string },
+    sumasAseguradas: string[]
+  ) => {
     setLoading(true);
     try {
-      const data: QuoteResult = await api.post('/quote', {
-        fecha_nacimiento: clienteActivo.fecha_nacimiento,
-        suma_asegurada: Number(sumaAsegurada),
-      });
-      setResults(data);
-      showToast('Cotización calculada con éxito.');
-
-      const selectedAdvisor = advisors.find((a) => String(a.id) === String(form.asesor_id));
-      api
-        .post('/quote/email', {
-          cliente: clienteActivo,
-          edad: data.edad,
-          suma_asegurada: data.suma_asegurada,
-          comparativas: data.comparativa,
-          email: form.correo || clienteActivo.correo,
-          asesor: selectedAdvisor || null,
-        })
-        .then(() => showToast('Enviamos el cuadro comparativo a tu correo electrónico.'))
-        .catch((err) => console.warn('Error al enviar correo automático', err));
+      const quotes: QuoteResult[] = await Promise.all(
+        sumasAseguradas.map((suma) =>
+          api.post('/quote', {
+            fecha_nacimiento: clienteActivo.fecha_nacimiento,
+            suma_asegurada: Number(suma),
+          })
+        )
+      );
+      setResults(quotes);
+      showToast(
+        quotes.length > 1 ? 'Cotizaciones calculadas con éxito.' : 'Cotización calculada con éxito.'
+      );
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Error al cotizar.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendEmail = async (quote: QuoteResult) => {
+    const activeCli = buildActiveCliente();
+    setSendingEmailFor(quote.suma_asegurada);
+    try {
+      const selectedAdvisor = advisors.find((a) => String(a.id) === String(form.asesor_id));
+      await api.post('/quote/email', {
+        cliente: activeCli,
+        edad: quote.edad,
+        suma_asegurada: quote.suma_asegurada,
+        comparativas: quote.comparativa,
+        email: form.correo || activeCli.correo,
+        asesor: selectedAdvisor || null,
+      });
+      showToast('Cotización enviada por correo con éxito.');
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Error al enviar el correo.', 'error');
+    } finally {
+      setSendingEmailFor(null);
     }
   };
 
@@ -138,8 +171,17 @@ export default function CotizadorScreen() {
   };
 
   const handleQuoteSubmit = async () => {
-    if (!form.primer_nombre || !form.primer_apellido || !form.nro_documento || !form.suma_asegurada || !form.asesor_id) {
-      return showToast('Por favor, rellena todos los campos obligatorios, incluyendo la suma asegurada y el asesor.', 'error');
+    if (
+      !form.primer_nombre ||
+      !form.primer_apellido ||
+      !form.nro_documento ||
+      form.sumas_aseguradas.length === 0 ||
+      !form.asesor_id
+    ) {
+      return showToast(
+        'Por favor, rellena todos los campos obligatorios, incluyendo al menos una suma asegurada y el asesor.',
+        'error'
+      );
     }
 
     if (!isLoggedIn) {
@@ -164,30 +206,30 @@ export default function CotizadorScreen() {
         setLoading(false);
       }
     } else {
-      const activeCli = cliente || {
-        primer_nombre: form.primer_nombre,
-        primer_apellido: form.primer_apellido,
-        fecha_nacimiento: form.fecha_nacimiento,
-        tipo_documento: 'Venezolano',
-        nro_documento: form.nro_documento,
-        genero: 'Masculino',
-        estado_civil: form.estado_civil,
-        correo: form.correo,
-        telefono: `${form.codigo_area}-${form.numero_celular}`,
-      };
-      ejecutarCotizacion(activeCli as Cliente, form.suma_asegurada);
+      ejecutarCotizacion(buildActiveCliente(), form.sumas_aseguradas);
     }
   };
 
-  const handleWhatsAppContact = (comp: QuoteResult['comparativa'][number]) => {
+  const handleWhatsAppContact = (quote: QuoteResult, comp: QuoteResult['comparativa'][number]) => {
     const selectedAdvisor = advisors.find((a) => String(a.id) === String(form.asesor_id));
     const phone = selectedAdvisor ? selectedAdvisor.telefono : advisors[0]?.telefono || '584121234567';
     const advisorName = selectedAdvisor ? selectedAdvisor.nombre : 'Asesor JKA';
     const planText = comp.plan ? ` (Plan ${comp.plan})` : '';
-    const userAge = results ? results.edad : 'No calculada';
 
-    const mensaje = `Hola ${advisorName}, estoy interesado en contratar el seguro de salud de *${comp.nombre}*${planText} con una prima anual de *$${comp.prima}* para mí (edad: ${userAge} años). Mi nombre es *${form.primer_nombre} ${form.primer_apellido}* y mi cédula es ${form.nro_documento}. ¡Espero su respuesta!`;
+    const mensaje = `Hola ${advisorName}, estoy interesado en contratar el seguro de salud de *${comp.nombre}*${planText} con una prima anual de *$${comp.prima}* para mí (edad: ${quote.edad} años). Mi nombre es *${form.primer_nombre} ${form.primer_apellido}* y mi cédula es ${form.nro_documento}. ¡Espero su respuesta!`;
     openWhatsApp(phone, mensaje);
+  };
+
+  const toggleSuma = (value: string) => {
+    setForm((prev) => {
+      const exists = prev.sumas_aseguradas.includes(value);
+      return {
+        ...prev,
+        sumas_aseguradas: exists
+          ? prev.sumas_aseguradas.filter((v) => v !== value)
+          : [...prev.sumas_aseguradas, value],
+      };
+    });
   };
 
   if (!hydrated) return null;
@@ -197,7 +239,7 @@ export default function CotizadorScreen() {
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Cotiza tu Seguro de Salud al Instante</Text>
         <Text style={styles.heroSubtitle}>
-          Compara aseguradoras y recibe tu comparativo por correo y WhatsApp.
+          Compara aseguradoras y contacta a tu asesor por WhatsApp o pídele el cuadro por correo.
         </Text>
       </View>
 
@@ -278,15 +320,14 @@ export default function CotizadorScreen() {
               value={form.numero_hijos}
               onChangeText={(v) => update({ numero_hijos: v })}
             />
-            <FormSelect
-              label="Suma asegurada deseada"
+            <ChipMultiSelect
+              label={`Sumas aseguradas a comparar (máximo ${MAX_SUMAS})`}
               required
-              selectedValue={form.suma_asegurada}
-              onValueChange={(v) => update({ suma_asegurada: v })}
-              items={[
-                { label: 'Selecciona una suma asegurada...', value: '' },
-                ...sums.map((s) => ({ label: `$${s.toLocaleString('en-US')}`, value: s })),
-              ]}
+              values={form.sumas_aseguradas}
+              onToggle={toggleSuma}
+              max={MAX_SUMAS}
+              onMaxReached={() => showToast(`Solo puedes seleccionar hasta ${MAX_SUMAS} sumas aseguradas.`, 'info')}
+              items={sums.map((s) => ({ label: `$${s.toLocaleString('en-US')}`, value: s }))}
             />
             <FormSelect
               label="Asesor JKA seleccionado"
@@ -312,14 +353,20 @@ export default function CotizadorScreen() {
         )}
       </Card>
 
-      {results && (
-        <Card>
-          <SectionTitle>Cuadro Comparativo</SectionTitle>
-          <Text style={styles.stepIndicator}>
-            Edad cotizada: {results.edad} años · Suma Asegurada: ${results.suma_asegurada.toLocaleString('en-US')}
-          </Text>
+      {results.map((quote) => (
+        <Card key={quote.suma_asegurada}>
+          <SectionTitle>Cuadro Comparativo · ${quote.suma_asegurada.toLocaleString('en-US')}</SectionTitle>
+          <Text style={styles.stepIndicator}>Edad cotizada: {quote.edad} años</Text>
 
-          {results.comparativa.map((comp) => (
+          <Button
+            title={sendingEmailFor === quote.suma_asegurada ? 'Enviando...' : 'Enviar cotización por correo'}
+            onPress={() => handleSendEmail(quote)}
+            loading={sendingEmailFor === quote.suma_asegurada}
+            variant="secondary"
+            style={{ marginBottom: 16 }}
+          />
+
+          {quote.comparativa.map((comp) => (
             <View
               key={comp.id}
               style={[styles.resultCard, comp.recomendada && styles.resultCardBest]}>
@@ -354,14 +401,14 @@ export default function CotizadorScreen() {
 
               <Button
                 title="Contactar por WhatsApp"
-                onPress={() => handleWhatsAppContact(comp)}
+                onPress={() => handleWhatsAppContact(quote, comp)}
                 variant="whatsapp"
                 disabled={!comp.prima}
               />
             </View>
           ))}
         </Card>
-      )}
+      ))}
 
       <Button title="¿Ya tienes cuenta? Inicia sesión" onPress={() => router.push('/login')} variant="secondary" />
     </Screen>
