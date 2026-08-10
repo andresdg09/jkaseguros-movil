@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 21.7.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://jkaseguros.onrender.com",
+        "DATABASE_URL": "postgresql://neondb_owner:npg_pm2FKjf4ywWn@ep-plain-fog-axfsnh1n-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
