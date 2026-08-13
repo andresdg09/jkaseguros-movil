@@ -14,10 +14,6 @@ export default function RootLayout() {
             name="login"
             options={{ headerShown: true, title: 'Iniciar Sesión', presentation: 'modal' }}
           />
-          <Stack.Screen
-            name="registro"
-            options={{ headerShown: true, title: 'Crear Cuenta', presentation: 'modal' }}
-          />
           <Stack.Screen name="asesor" />
         </Stack>
         <StatusBar style="auto" />

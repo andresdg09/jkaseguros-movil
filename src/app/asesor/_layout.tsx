@@ -12,12 +12,14 @@ export default function AsesorLayout() {
 
   return (
     <Tabs
+      initialRouteName="cotizador"
       screenOptions={{
         tabBarActiveTintColor: Brand.primary,
         headerStyle: { backgroundColor: Brand.primary },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: '700' },
       }}>
+      <Tabs.Screen name="cotizador" options={{ title: 'Cotizador' }} />
       <Tabs.Screen name="index" options={{ title: 'Clientes' }} />
       <Tabs.Screen name="cobranzas" options={{ title: 'Cobranzas' }} />
       <Tabs.Screen name="solicitar" options={{ title: 'Nueva Póliza' }} />

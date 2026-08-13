@@ -9,7 +9,7 @@ import { useToast } from '@/contexts/toast-context';
 import { ApiError } from '@/services/api';
 
 export default function LoginScreen() {
-  const { login, loading } = useAuth();
+  const { login, logout, loading } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
   const params = useLocalSearchParams<{ correo?: string }>();
@@ -27,11 +27,12 @@ export default function LoginScreen() {
     }
     try {
       const session = await login(correo, contrasena);
-      showToast('Sesión iniciada exitosamente.');
       if (session.user.rango === 'asesor' || session.user.rango === 'admin') {
-        router.replace('/asesor');
+        showToast('Sesión iniciada exitosamente.');
+        router.replace('/asesor/cotizador');
       } else {
-        router.replace('/');
+        await logout();
+        showToast('Esta aplicación es exclusiva para asesores JKA.', 'error');
       }
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Error al iniciar sesión.', 'error');
@@ -42,7 +43,7 @@ export default function LoginScreen() {
     <Screen>
       <Card>
         <Text style={styles.title}>Inicia Sesión</Text>
-        <Text style={styles.subtitle}>Clientes y asesores JKA usan la misma cuenta.</Text>
+        <Text style={styles.subtitle}>Acceso exclusivo para asesores JKA Consultores.</Text>
 
         <FormField
           label="Correo electrónico"
@@ -60,12 +61,6 @@ export default function LoginScreen() {
           onChangeText={setContrasena}
         />
         <Button title="Entrar" onPress={handleLogin} loading={loading} variant="accent" />
-        <Button
-          title="¿No tienes cuenta? Cotiza primero"
-          onPress={() => router.replace('/')}
-          variant="secondary"
-          style={{ marginTop: 12 }}
-        />
       </Card>
     </Screen>
   );
