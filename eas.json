@@ -14,12 +14,14 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://jkaseguros.onrender.com",
-        "DATABASE_URL": "postgresql://neondb_owner:npg_pm2FKjf4ywWn@ep-plain-fog-axfsnh1n-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+        "EXPO_PUBLIC_API_URL": "https://jkaseguros.onrender.com/api"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://jkaseguros.onrender.com/api"
+      }
     }
   },
   "submit": {

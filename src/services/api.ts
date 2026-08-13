@@ -1,4 +1,11 @@
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001/api';
+// Normaliza la URL base: si EXPO_PUBLIC_API_URL viene sin el sufijo /api (como pasó
+// en eas.json, causando 404 en todas las requests del APK), lo agregamos igual.
+function normalizeApiUrl(url: string) {
+  const trimmed = url.replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
+export const API_URL = normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001/api');
 
 export class ApiError extends Error {}
 
