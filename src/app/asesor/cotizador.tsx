@@ -1,3 +1,5 @@
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -8,7 +10,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { api, ApiError } from '@/services/api';
 import { Cliente, PendingQuote, QuoteResult } from '@/services/types';
-import { formatVenezuelanWhatsApp, openWhatsApp } from '@/services/whatsapp';
 
 const MAX_SUMAS = 2;
 
@@ -44,6 +45,7 @@ export default function CotizadorScreen() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<QuoteResult[]>([]);
   const [sendingEmailFor, setSendingEmailFor] = useState<number | null>(null);
+  const [sendingWhatsAppFor, setSendingWhatsAppFor] = useState<number | null>(null);
 
   const update = (patch: Partial<PendingQuote>) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -122,25 +124,35 @@ export default function CotizadorScreen() {
   };
 
   const handleSendWhatsApp = async (quote: QuoteResult) => {
-    const phone = formatVenezuelanWhatsApp(form.codigo_area, form.numero_celular);
-    if (!phone) {
-      return showToast('El número de teléfono del cliente no es válido.', 'error');
-    }
-    const lineas = quote.comparativa
-      .map(
-        (c) =>
-          `• ${c.nombre}${c.plan ? ` (${c.plan})` : ''}: ${c.prima ? `$${c.prima}/año` : 'No disponible'}`
-      )
-      .join('\n');
-    const mensaje = `Hola ${form.primer_nombre || ''}, aquí tienes tu cotización de seguro de salud para una suma asegurada de $${quote.suma_asegurada.toLocaleString(
-      'en-US'
-    )} (edad cotizada: ${quote.edad} años):\n\n${lineas}\n\nCualquier duda, quedo a tu orden.\n- ${
-      asesor?.nombre || 'Tu asesor JKA'
-    }`;
+    const activeCli = buildActiveCliente();
+    setSendingWhatsAppFor(quote.suma_asegurada);
     try {
-      await openWhatsApp(phone, mensaje);
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        return showToast('Este dispositivo no permite compartir archivos.', 'error');
+      }
+
+      // Generamos el mismo PDF que se envía por correo y lo abrimos en el selector nativo
+      // para que el asesor lo mande por WhatsApp al chat del cliente.
+      const bytes = await api.postForBytes('/quote/pdf', {
+        cliente: activeCli,
+        edad: quote.edad,
+        suma_asegurada: quote.suma_asegurada,
+        comparativas: quote.comparativa,
+        asesor: asesor || null,
+      });
+
+      const file = new File(Paths.cache, `cotizacion_jka_${quote.suma_asegurada}_${Date.now()}.pdf`);
+      file.write(bytes);
+
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Enviar cotización por WhatsApp',
+      });
     } catch (err) {
-      showToast('No se pudo abrir WhatsApp en este dispositivo.', 'error');
+      showToast(err instanceof ApiError ? err.message : 'Error al preparar el PDF para WhatsApp.', 'error');
+    } finally {
+      setSendingWhatsAppFor(null);
     }
   };
 
@@ -276,7 +288,7 @@ export default function CotizadorScreen() {
             <View style={styles.row}>
               <Button title="Atrás" onPress={() => setStep(1)} variant="secondary" style={{ flex: 1 }} />
               <Button
-                title={loading ? 'Calculando...' : 'Cotizar Seguros'}
+                title={loading ? 'Calculando...' : 'Cotizar'}
                 onPress={handleQuoteSubmit}
                 loading={loading}
                 variant="accent"
@@ -301,8 +313,9 @@ export default function CotizadorScreen() {
               style={{ flex: 1, marginBottom: 16 }}
             />
             <Button
-              title="Enviar por WhatsApp"
+              title={sendingWhatsAppFor === quote.suma_asegurada ? 'Preparando...' : 'Enviar por WhatsApp'}
               onPress={() => handleSendWhatsApp(quote)}
+              loading={sendingWhatsAppFor === quote.suma_asegurada}
               variant="whatsapp"
               style={{ flex: 1, marginBottom: 16 }}
             />

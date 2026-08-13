@@ -84,9 +84,15 @@ export function FormSelect({
         {required ? ' *' : ''}
       </Text>
       <View style={styles.pickerWrapper}>
-        <Picker selectedValue={String(selectedValue)} onValueChange={(v) => onValueChange(String(v))}>
+        <Picker
+          selectedValue={String(selectedValue)}
+          onValueChange={(v) => onValueChange(String(v))}
+          style={styles.picker}
+          dropdownIconColor="#0f172a">
           {items.map((item) => (
-            <Picker.Item key={String(item.value)} label={item.label} value={String(item.value)} />
+            // color explícito: en Android el Picker no hereda un color de texto por
+            // defecto legible, y el valor seleccionado terminaba invisible.
+            <Picker.Item key={String(item.value)} label={item.label} value={String(item.value)} color="#0f172a" />
           ))}
         </Picker>
       </View>
@@ -218,6 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     overflow: 'hidden',
   },
+  picker: { color: '#0f172a' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     borderWidth: 1.5,
@@ -239,5 +246,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.55 },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700', textAlign: 'center' },
 });
