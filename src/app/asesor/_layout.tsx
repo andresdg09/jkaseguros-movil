@@ -32,7 +32,6 @@ export default function AsesorLayout() {
         options={{ title: 'Cotizador', tabBarIcon: TabIcon('calculator-outline') }}
       />
       <Tabs.Screen name="index" options={{ title: 'Clientes', tabBarIcon: TabIcon('people-outline') }} />
-      <Tabs.Screen name="cobranzas" options={{ title: 'Cobranzas', tabBarIcon: TabIcon('cash-outline') }} />
       <Tabs.Screen
         name="solicitar"
         options={{ title: 'Nueva Póliza', tabBarIcon: TabIcon('document-text-outline') }}

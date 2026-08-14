@@ -38,6 +38,12 @@ export interface Compania {
   nombre: string;
 }
 
+export interface DesglosePrima {
+  relacion: string;
+  edad: number;
+  prima: number;
+}
+
 export interface Comparativa {
   id: number;
   nombre: string;
@@ -58,12 +64,18 @@ export interface Comparativa {
   calidadScore: number;
   relacion_calidad_precio: number;
   recomendada: boolean;
+  desglosePrimas?: DesglosePrima[];
 }
 
 export interface QuoteResult {
   edad: number;
   suma_asegurada: number;
   comparativa: Comparativa[];
+}
+
+export interface Dependiente {
+  relacion: string;
+  edad: string;
 }
 
 export interface Poliza {
@@ -107,7 +119,7 @@ export interface AdvisorClient {
   correo: string;
 }
 
-export interface PendingQuote {
+export interface CotizadorForm {
   fecha_nacimiento: string;
   correo: string;
   codigo_area: string;
@@ -115,8 +127,10 @@ export interface PendingQuote {
   primer_nombre: string;
   primer_apellido: string;
   nro_documento: string;
+  genero: string;
   estado_civil: string;
-  numero_hijos: string;
+  tiene_dependientes: 'No' | 'Sí';
+  dependientes: Dependiente[];
   sumas_aseguradas: string[];
-  asesor_id: string;
+  compania_ids: string[];
 }

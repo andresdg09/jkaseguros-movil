@@ -24,6 +24,7 @@ interface AuthContextValue {
   login: (correo: string, contrasena: string) => Promise<StoredSession>;
   register: (form: Record<string, unknown>) => Promise<StoredSession>;
   logout: () => Promise<void>;
+  updateProfile: (patch: { cliente?: Partial<Cliente>; asesor?: Partial<Asesor> }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -95,6 +96,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Aplica cambios locales (ej. tras editar el perfil) sin necesidad de volver a
+  // iniciar sesión: actualiza tanto el estado en memoria como lo persistido.
+  const updateProfile = async (patch: { cliente?: Partial<Cliente>; asesor?: Partial<Asesor> }) => {
+    const nextCliente = patch.cliente ? { ...(cliente as Cliente), ...patch.cliente } : cliente;
+    const nextAsesor = patch.asesor ? { ...(asesor as Asesor), ...patch.asesor } : asesor;
+    setCliente(nextCliente);
+    setAsesor(nextAsesor);
+    if (token && user) {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ token, user, cliente: nextCliente, asesor: nextAsesor })
+      );
+    }
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
     setToken(null);
@@ -107,7 +123,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ token, user, cliente, asesor, hydrated, loading, isLoggedIn, login, register, logout }}>
+      value={{
+        token,
+        user,
+        cliente,
+        asesor,
+        hydrated,
+        loading,
+        isLoggedIn,
+        login,
+        register,
+        logout,
+        updateProfile,
+      }}>
       {children}
     </AuthContext.Provider>
   );

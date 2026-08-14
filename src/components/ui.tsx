@@ -174,7 +174,11 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={variant === 'secondary' ? Brand.primary : '#fff'} />
       ) : (
-        <Text style={[styles.buttonText, variant === 'secondary' && { color: Brand.primary }]}>{title}</Text>
+        <Text
+          style={[styles.buttonText, variant === 'secondary' && { color: Brand.primary }]}
+          allowFontScaling={false}>
+          {title}
+        </Text>
       )}
     </Pressable>
   );
@@ -241,6 +245,8 @@ const styles = StyleSheet.create({
   button: {
     borderRadius: 10,
     paddingVertical: 14,
+    paddingHorizontal: 8,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
