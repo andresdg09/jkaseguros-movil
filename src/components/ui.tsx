@@ -176,7 +176,10 @@ export function Button({
       ) : (
         <Text
           style={[styles.buttonText, variant === 'secondary' && { color: Brand.primary }]}
-          allowFontScaling={false}>
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          numberOfLines={1}
+          adjustsFontSizeToFit>
           {title}
         </Text>
       )}

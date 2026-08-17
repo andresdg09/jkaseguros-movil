@@ -1,5 +1,3 @@
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -10,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { api, ApiError } from '@/services/api';
 import { Cliente, Compania, CotizadorForm, QuoteResult } from '@/services/types';
+import { formatVenezuelanWhatsApp, openWhatsApp } from '@/services/whatsapp';
 
 const MAX_SUMAS = 2;
 const MAX_ASEGURADORAS = 3;
@@ -129,12 +128,20 @@ export default function CotizadorScreen() {
     }
   };
 
-  // Un solo botón: manda el mismo PDF por correo (automático, vía backend) y lo deja
-  // listo para compartir por WhatsApp (el asesor elige el chat del cliente en el
-  // selector nativo, ya que WhatsApp no permite adjuntar+enviar a un número específico
-  // sin interacción del usuario).
+  // Un solo botón, dos canales automáticos:
+  // 1) Correo: el backend genera el PDF y lo envía solo, sin más pasos.
+  // 2) WhatsApp: abrimos el chat del cliente directamente (número ya puesto, sin
+  //    selector de contactos) con el resumen ya escrito. WhatsApp exige que el propio
+  //    usuario presione "Enviar" dentro de su chat -- ninguna app externa (ni la API
+  //    oficial de Meta) puede saltarse ese último toque, es una medida antispam de
+  //    WhatsApp, no una limitación de esta app.
   const handleSendQuote = async (quote: QuoteResult) => {
     const activeCli = buildActiveCliente();
+    const phone = formatVenezuelanWhatsApp(form.codigo_area, form.numero_celular);
+    if (!phone) {
+      return showToast('El número de teléfono del cliente no es válido.', 'error');
+    }
+
     setSendingFor(quote.suma_asegurada);
     try {
       await api.post('/quote/email', {
@@ -147,25 +154,19 @@ export default function CotizadorScreen() {
         mensaje: MENSAJE_PREDETERMINADO,
       });
 
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        const bytes = await api.postForBytes('/quote/pdf', {
-          cliente: activeCli,
-          edad: quote.edad,
-          suma_asegurada: quote.suma_asegurada,
-          comparativas: quote.comparativa,
-          asesor: asesor || null,
-        });
-        const file = new File(Paths.cache, `cotizacion_jka_${quote.suma_asegurada}_${Date.now()}.pdf`);
-        file.write(bytes);
-        await Sharing.shareAsync(file.uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Enviar cotización por WhatsApp',
-        });
-        showToast('Correo enviado. Elige WhatsApp en el selector para mandarla también por ahí.');
-      } else {
-        showToast('Cotización enviada por correo con éxito.');
-      }
+      const lineas = quote.comparativa
+        .map(
+          (c) => `• ${c.nombre}${c.plan ? ` (${c.plan})` : ''}: ${c.prima ? `$${c.prima}/año` : 'No disponible'}`
+        )
+        .join('\n');
+      const mensajeWa = `Hola ${form.primer_nombre || ''}, ${MENSAJE_PREDETERMINADO} Te la envié también a tu correo ${
+        form.correo
+      } en PDF.\n\nResumen para suma asegurada $${quote.suma_asegurada.toLocaleString('en-US')} (edad ${quote.edad} años):\n\n${lineas}\n\n- ${
+        asesor?.nombre || 'Tu asesor JKA'
+      }`;
+      await openWhatsApp(phone, mensajeWa);
+
+      showToast('Correo enviado. Confirma el envío en WhatsApp (ya está abierto en el chat del cliente).');
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Error al enviar la cotización.', 'error');
     } finally {
