@@ -133,7 +133,14 @@ export function ChipMultiSelect({
               key={value}
               onPress={() => (atMax ? onMaxReached?.() : onToggle(value))}
               style={[styles.chip, selected && styles.chipSelected, atMax && styles.chipDisabled]}>
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item.label}</Text>
+              <Text
+                style={[styles.chipText, selected && styles.chipTextSelected]}
+                allowFontScaling={false}
+                maxFontSizeMultiplier={1}
+                numberOfLines={1}
+                adjustsFontSizeToFit>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
